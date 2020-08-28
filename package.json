@@ -1,0 +1,19 @@
+{
+  "name": "download-stat-aggregator",
+  "version": "1.0.0",
+  "description": "Fontsource NPM download stat aggregator",
+  "main": "index.js",
+  "repository": "https://github.com/fontsource/download-stat-aggregator.git",
+  "author": "Lotus <declininglotus@gmail.com>",
+  "license": "MIT",
+  "dependencies": {
+    "download-stats": "^0.3.4",
+    "millify": "^3.3.0"
+  },
+  "devDependencies": {
+    "eslint": "^7.7.0",
+    "eslint-config-prettier": "^6.11.0",
+    "eslint-plugin-prettier": "^3.1.4",
+    "prettier": "^2.1.1"
+  }
+}
