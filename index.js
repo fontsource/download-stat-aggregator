@@ -52,7 +52,7 @@ queue.drain(() => {
     schemaVersion: 1,
     label: "downloads",
     message: `${downloadsMonthBadge}/month`,
-    color: "orange",
+    color: "brightgreen",
   }
   jsonfile.writeFileSync("./data/badgeMonth.json", badgeMonth)
 
