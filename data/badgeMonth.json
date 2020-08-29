@@ -1,6 +1,10 @@
+<<<<<<< HEAD
 {
   "schemaVersion": 1,
   "label": "downloads",
   "message": "303.08K/month",
   "color": "brightgreen"
 }
+=======
+{"schemaVersion":1,"label":"downloads","message":"291.38K/month","color":"orange"}
+>>>>>>> 363a1617219c3e7abdc6d5cccfee65d9a91482ca
