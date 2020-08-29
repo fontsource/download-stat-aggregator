@@ -1,0 +1,42 @@
+name: Build and Release [Manual]
+
+on: [workflow_dispatch]
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    if: github.actor == 'DecliningLotus'
+
+    steps:
+      - name: checkout
+        uses: actions/checkout@v2
+        with:
+          fetch-depth: "0"
+
+      - name: Configure CI Git User
+        run: |
+          git config --global user.name 'DecliningLotus'
+          git config --global user.email 'DecliningLotus@users.noreply.github.com'
+
+      - name: Install packages
+        run: yarn
+
+      - name: Fetch Fontsource fontlist
+        run: yarn fontlist
+
+      - name: Parse
+        run: yarn parse
+
+      - name: Stage changes
+        run: git add --all
+
+      - name: Commit files
+        run: >-
+          git commit -m "chore(build): update download counts [Manual $GITHUB_RUN_NUMBER]"
+        continue-on-error: true
+
+      - name: Push changes
+        uses: ad-m/github-push-action@master
+        with:
+          github_token: ${{ secrets.GITHUB_TOKEN }}
