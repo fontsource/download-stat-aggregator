@@ -2,7 +2,7 @@ const _ = require("lodash")
 const async = require("async")
 const axios = require("axios")
 const jsonfile = require("jsonfile")
-const millify = require("millify")
+const millify = require("millify").default
 const rax = require("retry-axios")
 
 const downloadMonth = "https://api.npmjs.org/downloads/point/last-month/"
@@ -12,21 +12,27 @@ const downloadTotal =
 // Retry axios functionality
 const interceptorId = rax.attach()
 
-let lastMonthDownloads = []
-let totalDownloads = []
+const lastMonthDownloads = []
+const totalDownloads = []
+
+const lastMonthPopular = {}
+const totalPopular = {}
 
 // Fetch NPM stats
 const statsGet = async package => {
   try {
     const response = await axios.get(downloadMonth + package)
     lastMonthDownloads.push(response.data.downloads)
+    lastMonthPopular[package] = response.data.downloads
   } catch (error) {
     console.error(error)
   }
   try {
     const response = await axios.get(downloadTotal + package)
     const downloadArray = response.data.downloads.map(item => item.downloads)
-    totalDownloads.push(_.sum(downloadArray))
+    const downloads = _.sum(downloadArray)
+    totalDownloads.push(downloads)
+    totalPopular[package] = downloads
   } catch (error) {
     console.error(error)
   }
@@ -45,7 +51,7 @@ queue.error((err, package) => {
 })
 
 queue.drain(() => {
-  const downloadsMonthBadge = millify.default(_.sum(lastMonthDownloads), {
+  const downloadsMonthBadge = millify(_.sum(lastMonthDownloads), {
     precision: 2,
   })
   const badgeMonth = {
@@ -56,7 +62,7 @@ queue.drain(() => {
   }
   jsonfile.writeFileSync("./data/badgeMonth.json", badgeMonth)
 
-  const downloadsTotalBadge = millify.default(_.sum(totalDownloads), {
+  const downloadsTotalBadge = millify(_.sum(totalDownloads), {
     precision: 2,
   })
   const badgeTotal = {
@@ -66,6 +72,17 @@ queue.drain(() => {
     color: "brightgreen",
   }
   jsonfile.writeFileSync("./data/badgeTotal.json", badgeTotal)
+
+  // Reconstructs array back into object.
+  const sortedLastMonthPopular = Object.fromEntries(
+    // Flips from ascending order to descending. Deconstructs object to array for sort.
+    _.reverse(Object.entries(lastMonthPopular).sort(([, a], [, b]) => a - b))
+  )
+  const sortedTotalPopular = Object.fromEntries(
+    _.reverse(Object.entries(totalPopular).sort(([, a], [, b]) => a - b))
+  )
+  jsonfile.writeFileSync("./data/lastMonthPopular.json", sortedLastMonthPopular)
+  jsonfile.writeFileSync("./data/totalPopular.json", sortedTotalPopular)
 })
 
 const production = () => {
