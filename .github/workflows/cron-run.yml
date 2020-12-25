@@ -28,6 +28,9 @@ jobs:
       - name: Parse
         run: yarn parse
 
+      - name: Format
+        run: yarn format
+
       - name: Stage changes
         run: git add --all
 
