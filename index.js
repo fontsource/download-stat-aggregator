@@ -88,6 +88,7 @@ queue.drain(() => {
 const production = () => {
   _.forEach(fontList, font => {
     queue.push(`fontsource-${font}`)
+    queue.push(`@fontsource/${font}`)
   })
 }
 
