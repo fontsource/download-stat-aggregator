@@ -9,9 +9,6 @@ const downloadMonth = "https://api.npmjs.org/downloads/point/last-month/"
 const downloadTotal =
   "https://api.npmjs.org/downloads/range/2020-01-01:3000-01-01/"
 
-// Retry axios functionality
-const interceptorId = rax.attach()
-
 const lastMonthDownloads = []
 const totalDownloads = []
 

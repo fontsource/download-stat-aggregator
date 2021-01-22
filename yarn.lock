@@ -722,11 +722,6 @@ resolve-from@^4.0.0:
   resolved "https://registry.yarnpkg.com/resolve-from/-/resolve-from-4.0.0.tgz#4abcd852ad32dd7baabfe9b40e00a36db5f392e6"
   integrity sha512-pb/MYmXstAkysRFx8piNI1tGFNQIFA3vkE3Gq4EuA1dF6gHp/+vgZqsCGJapvy8N3Q+4o7FwvquPJcnZ7RYy4g==
 
-retry-axios@^2.2.1:
-  version "2.2.1"
-  resolved "https://registry.yarnpkg.com/retry-axios/-/retry-axios-2.2.1.tgz#da3cb93436fa2f931332d4e6a9927bd6cfa618c8"
-  integrity sha512-vSZzu29W48+/mVPOq+gwKe+qYWcppiKODXi4FN9q0iN+4s2z10/l1LDS4Ju4vReTyuvKOoqmHqY0rOAmuFjI/Q==
-
 rimraf@2.6.3:
   version "2.6.3"
   resolved "https://registry.yarnpkg.com/rimraf/-/rimraf-2.6.3.tgz#b2d104fe0d8fb27cf9e0a1cda8262dd3833c6cab"
