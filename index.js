@@ -61,7 +61,7 @@ const fontList = Object.keys(jsonfile.readFileSync("./data/fontlist.json"))
 
 // EventEmitter is usually limited to 10. Remove restriction for more concurrency.
 require("events").EventEmitter.defaultMaxListeners = 0
-const queue = async.queue(statsGet, 18)
+const queue = async.queue(statsGet, 12)
 
 queue.error((err, package) => {
   console.error(`${package} experienced an error.`, err)
