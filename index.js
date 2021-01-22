@@ -15,17 +15,37 @@ const totalDownloads = []
 const lastMonthPopular = {}
 const totalPopular = {}
 
+const interceptorId = rax.attach()
+
 // Fetch NPM stats
 const statsGet = async package => {
   try {
-    const response = await axios.get(downloadMonth + package)
+    const response = await axios({
+      method: "get",
+      url: downloadMonth + package,
+      raxConfig: {
+        retryDelay: 1000,
+        httpMethodsToRetry: ["GET"],
+        statusCodesToRetry: [[429, 429]],
+        backoffType: "static",
+      },
+    })
     lastMonthDownloads.push(response.data.downloads)
     lastMonthPopular[package] = response.data.downloads
   } catch (error) {
     console.error(error)
   }
   try {
-    const response = await axios.get(downloadTotal + package)
+    const response = await axios({
+      method: "get",
+      url: downloadTotal + package,
+      raxConfig: {
+        retryDelay: 1000,
+        httpMethodsToRetry: ["GET"],
+        statusCodesToRetry: [[429, 429]],
+        backoffType: "static",
+      },
+    })
     const downloadArray = response.data.downloads.map(item => item.downloads)
     const downloads = _.sum(downloadArray)
     totalDownloads.push(downloads)
