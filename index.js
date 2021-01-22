@@ -40,7 +40,7 @@ const statsGet = async package => {
       method: "get",
       url: downloadTotal + package,
       raxConfig: {
-        retryDelay: 1000,
+        retryDelay: 10000,
         httpMethodsToRetry: ["GET"],
         statusCodesToRetry: [[429, 429]],
         backoffType: "static",
