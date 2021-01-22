@@ -10,7 +10,8 @@
     "axios": "^0.21.1",
     "jsonfile": "^6.0.1",
     "lodash": "^4.17.20",
-    "millify": "^3.3.0"
+    "millify": "^3.3.0",
+    "retry-axios": "^2.4.0"
   },
   "devDependencies": {
     "eslint": "^7.7.0",
