@@ -5,6 +5,8 @@ const jsonfile = require("jsonfile")
 const millify = require("millify").default
 const rax = require("retry-axios")
 
+const existingTotalDownload = require("./data/badgeTotal.json")
+
 const downloadMonth = "https://api.npmjs.org/downloads/point/last-month/"
 const downloadTotal =
   "https://api.npmjs.org/downloads/range/2020-01-01:3000-01-01/"
@@ -71,35 +73,46 @@ queue.drain(() => {
   const downloadsMonthBadge = millify(_.sum(lastMonthDownloads), {
     precision: 2,
   })
-  const badgeMonth = {
-    schemaVersion: 1,
-    label: "downloads",
-    message: `${downloadsMonthBadge}/month`,
-    color: "brightgreen",
-  }
-  jsonfile.writeFileSync("./data/badgeMonth.json", badgeMonth)
-
   const downloadsTotalBadge = millify(_.sum(totalDownloads), {
     precision: 2,
   })
-  const badgeTotal = {
-    schemaVersion: 1,
-    label: "downloads",
-    message: downloadsTotalBadge,
-    color: "brightgreen",
-  }
-  jsonfile.writeFileSync("./data/badgeTotal.json", badgeTotal)
 
-  // Reconstructs array back into object.
-  const sortedLastMonthPopular = Object.fromEntries(
-    // Flips from ascending order to descending. Deconstructs object to array for sort.
-    _.reverse(Object.entries(lastMonthPopular).sort(([, a], [, b]) => a - b))
-  )
-  const sortedTotalPopular = Object.fromEntries(
-    _.reverse(Object.entries(totalPopular).sort(([, a], [, b]) => a - b))
-  )
-  jsonfile.writeFileSync("./data/lastMonthPopular.json", sortedLastMonthPopular)
-  jsonfile.writeFileSync("./data/totalPopular.json", sortedTotalPopular)
+  // NPM downloads can be volatile and sometimes might error out a lot in a workflow.
+  // Hence we sometimes fluctuate in the millions.
+  if (
+    downloadsTotalBadge.replace(/\D/g, "") >
+    existingTotalDownload.message.replace(/\D/g, "")
+  ) {
+    const badgeMonth = {
+      schemaVersion: 1,
+      label: "downloads",
+      message: `${downloadsMonthBadge}/month`,
+      color: "brightgreen",
+    }
+    jsonfile.writeFileSync("./data/badgeMonth.json", badgeMonth)
+
+    const badgeTotal = {
+      schemaVersion: 1,
+      label: "downloads",
+      message: downloadsTotalBadge,
+      color: "brightgreen",
+    }
+    jsonfile.writeFileSync("./data/badgeTotal.json", badgeTotal)
+
+    // Reconstructs array back into object.
+    const sortedLastMonthPopular = Object.fromEntries(
+      // Flips from ascending order to descending. Deconstructs object to array for sort.
+      _.reverse(Object.entries(lastMonthPopular).sort(([, a], [, b]) => a - b))
+    )
+    const sortedTotalPopular = Object.fromEntries(
+      _.reverse(Object.entries(totalPopular).sort(([, a], [, b]) => a - b))
+    )
+    jsonfile.writeFileSync(
+      "./data/lastMonthPopular.json",
+      sortedLastMonthPopular
+    )
+    jsonfile.writeFileSync("./data/totalPopular.json", sortedTotalPopular)
+  }
 })
 
 const production = () => {
