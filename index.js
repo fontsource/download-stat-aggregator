@@ -58,9 +58,6 @@ const statsGet = async package => {
   console.log(`Fetched ${package}`)
 }
 
-// Get fontlist keys only
-const fontList = Object.keys(jsonfile.readFileSync("./data/fontlist.json"))
-
 // EventEmitter is usually limited to 10. Remove restriction for more concurrency.
 require("events").EventEmitter.defaultMaxListeners = 0
 const queue = async.queue(statsGet, 12)
@@ -115,10 +112,18 @@ queue.drain(() => {
   }
 })
 
+// Get fontlist keys only
+const fontList = Object.keys(jsonfile.readFileSync("./data/fontlist.json"))
+const legacyFontlist = Object.keys(
+  jsonfile.readFileSync("./data/legacy-fontlist.json")
+)
+
 const production = () => {
   _.forEach(fontList, font => {
-    queue.push(`fontsource-${font}`)
     queue.push(`@fontsource/${font}`)
+  })
+  _.forEach(legacyFontlist, font => {
+    queue.push(`fontsource-${font}`)
   })
 }
 
