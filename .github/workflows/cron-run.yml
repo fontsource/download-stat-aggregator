@@ -14,11 +14,6 @@ jobs:
         with:
           fetch-depth: "0"
 
-      - name: Configure CI Git User
-        run: |
-          git config --global user.name 'fontsource-bot'
-          git config --global user.email 'fontsource-bot@users.noreply.github.com'
-
       - name: Install packages
         run: yarn
 
