@@ -74,8 +74,8 @@ queue.drain(() => {
     precision: 2,
   })
 
-  console.log(`Month: ${badgeMonth}`)
-  console.log(`Year: ${badgeTotal}`)
+  console.log(`Month: ${downloadsMonthBadge}`)
+  console.log(`Year: ${downloadsTotalBadge}`)
 
   const badgeMonth = {
     schemaVersion: 1,
