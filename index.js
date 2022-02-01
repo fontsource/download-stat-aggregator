@@ -67,43 +67,55 @@ queue.error((err, package) => {
 })
 
 queue.drain(() => {
-  const downloadsMonthBadge = millify(_.sum(lastMonthDownloads), {
-    precision: 2,
-  })
-  const downloadsTotalBadge = millify(_.sum(totalDownloads), {
-    precision: 2,
-  })
+  const downloadsMonth = _.sum(lastMonthDownloads)
+  const downloadsTotal = _.sum(totalDownloads)
 
-  console.log(`Month: ${downloadsMonthBadge}`)
-  console.log(`Year: ${downloadsTotalBadge}`)
-
-  const badgeMonth = {
-    schemaVersion: 1,
-    label: "downloads",
-    message: `${downloadsMonthBadge}/month`,
-    color: "brightgreen",
-  }
-  jsonfile.writeFileSync("./data/badgeMonth.json", badgeMonth)
-
-  const badgeTotal = {
-    schemaVersion: 1,
-    label: "downloads",
-    message: downloadsTotalBadge,
-    color: "brightgreen",
-  }
-  jsonfile.writeFileSync("./data/badgeTotal.json", badgeTotal)
-
-  // Reconstructs array back into object.
-  const sortedLastMonthPopular = Object.fromEntries(
-    // Flips from ascending order to descending. Deconstructs object to array for sort.
-    _.reverse(Object.entries(lastMonthPopular).sort(([, a], [, b]) => a - b))
-  )
-  const sortedTotalPopular = Object.fromEntries(
-    _.reverse(Object.entries(totalPopular).sort(([, a], [, b]) => a - b))
+  const existingDownloadsTotal = _.sum(
+    Object.values(jsonfile.readFileSync("./data/totalPopular.json"))
   )
 
-  jsonfile.writeFileSync("./data/lastMonthPopular.json", sortedLastMonthPopular)
-  jsonfile.writeFileSync("./data/totalPopular.json", sortedTotalPopular)
+  if (downloadsTotal > existingDownloadsTotal) {
+    const downloadsMonthBadge = millify(downloadsMonth, {
+      precision: 2,
+    })
+    const downloadsTotalBadge = millify(downloadsTotal, {
+      precision: 2,
+    })
+
+    console.log(`Month: ${downloadsMonthBadge}`)
+    console.log(`Year: ${downloadsTotalBadge}`)
+
+    const badgeMonth = {
+      schemaVersion: 1,
+      label: "downloads",
+      message: `${downloadsMonthBadge}/month`,
+      color: "brightgreen",
+    }
+    jsonfile.writeFileSync("./data/badgeMonth.json", badgeMonth)
+
+    const badgeTotal = {
+      schemaVersion: 1,
+      label: "downloads",
+      message: downloadsTotalBadge,
+      color: "brightgreen",
+    }
+    jsonfile.writeFileSync("./data/badgeTotal.json", badgeTotal)
+
+    // Reconstructs array back into object.
+    const sortedLastMonthPopular = Object.fromEntries(
+      // Flips from ascending order to descending. Deconstructs object to array for sort.
+      _.reverse(Object.entries(lastMonthPopular).sort(([, a], [, b]) => a - b))
+    )
+    const sortedTotalPopular = Object.fromEntries(
+      _.reverse(Object.entries(totalPopular).sort(([, a], [, b]) => a - b))
+    )
+
+    jsonfile.writeFileSync(
+      "./data/lastMonthPopular.json",
+      sortedLastMonthPopular
+    )
+    jsonfile.writeFileSync("./data/totalPopular.json", sortedTotalPopular)
+  }
 })
 
 // Get fontlist keys only
