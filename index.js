@@ -60,7 +60,7 @@ const statsGet = async package => {
 
 // EventEmitter is usually limited to 10. Remove restriction for more concurrency.
 require("events").EventEmitter.defaultMaxListeners = 0
-const queue = async.queue(statsGet, 12)
+const queue = async.queue(statsGet, 1)
 
 queue.error((err, package) => {
   console.error(`${package} experienced an error.`, err)
