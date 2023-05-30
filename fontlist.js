@@ -2,8 +2,7 @@ const axios = require("axios")
 const jsonfile = require("jsonfile")
 const rax = require("retry-axios")
 
-const fontListURL =
-  "https://raw.githubusercontent.com/fontsource/fontsource/master/FONTLIST.json"
+const fontListURL = "https://api.fontsource.org/fontlist?variable"
 
 axios
   .get(fontListURL)

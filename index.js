@@ -5,8 +5,6 @@ const jsonfile = require("jsonfile")
 const millify = require("millify").default
 const rax = require("retry-axios")
 
-const existingTotalDownload = require("./data/badgeTotal.json")
-
 const downloadMonth = "https://api.npmjs.org/downloads/point/last-month/"
 const downloadTotal =
   "https://api.npmjs.org/downloads/range/2020-01-01:3000-01-01/"
@@ -17,7 +15,7 @@ const totalDownloads = []
 const lastMonthPopular = {}
 const totalPopular = {}
 
-const interceptorId = rax.attach()
+rax.attach()
 
 // Fetch NPM stats
 const statsGet = async package => {
@@ -118,19 +116,21 @@ queue.drain(() => {
   }
 })
 
-// Get fontlist keys only
-const fontList = Object.keys(jsonfile.readFileSync("./data/fontlist.json"))
-const legacyFontlist = Object.keys(
-  jsonfile.readFileSync("./data/legacy-fontlist.json")
-)
+// Get fontlist
+const fontList = jsonfile.readFileSync("./data/fontlist.json")
+const legacyFontlist = jsonfile.readFileSync("./data/legacy-fontlist.json")
 
 const production = () => {
-  _.forEach(fontList, font => {
-    queue.push(`@fontsource/${font}`)
-  })
-  _.forEach(legacyFontlist, font => {
-    queue.push(`fontsource-${font}`)
-  })
+  for (const [key, isVariable] of Object.entries(fontList)) {
+    queue.push(`@fontsource/${key}`)
+    if (isVariable) {
+      queue.push(`@fontsource-variable/${key}`)
+    }
+  }
+
+  for (const id of Object.keys(legacyFontlist)) {
+    queue.push(`fontsource/${id}`)
+  }
 }
 
 production()
