@@ -748,6 +748,7 @@
   "lexend-peta": true,
   "lexend-tera": true,
   "lexend-zetta": true,
+  "lextrall": true,
   "libre-barcode-128": false,
   "libre-barcode-128-text": false,
   "libre-barcode-39": false,
