@@ -291,7 +291,7 @@ production().then(() => {
 		);
 		fs.writeFileSync('./data/totalPopular.json', stringify(sortedTotalPopular));
 		fs.writeFileSync(
-			'./data/jsDelivrLastMonthPopular.json',
+			'./data/jsDelivrMonthPopular.json',
 			stringify(sortedJsDelivrLastMonthPopular)
 		);
 		fs.writeFileSync(
