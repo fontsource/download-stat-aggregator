@@ -10,23 +10,20 @@ jobs:
       - name: checkout
         uses: actions/checkout@v3
 
-      - name: Set node version to 18
+      - name: Enable PNPM
+        uses: pnpm/action-setup@v2
+
+      - name: Set node version to 20
         uses: actions/setup-node@v3
         with:
-          node-version: "18"
-          cache: "yarn"
+          node-version: "20"
+          cache: "pnpm"
 
       - name: Install packages
-        run: yarn
-
-      - name: Fetch Fontsource fontlist
-        run: yarn fontlist
+        run: pnpm install
 
       - name: Parse
         run: yarn parse
-
-      - name: Format
-        run: yarn format
 
       - name: Stage, commit and push files
         uses: stefanzweifel/git-auto-commit-action@v4
