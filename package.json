@@ -3,6 +3,7 @@
 	"version": "1.1.0",
 	"description": "Fontsource NPM download stat aggregator",
 	"repository": "https://github.com/fontsource/download-stat-aggregator.git",
+	"packageManager": "pnpm@8.8.0",
 	"author": "Lotus <declininglotus@gmail.com>",
 	"license": "MIT",
 	"dependencies": {
