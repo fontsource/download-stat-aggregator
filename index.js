@@ -1,6 +1,7 @@
-const fs = require('fs');
-const millify = require('millify').default;
-const stringify = require('json-stringify-pretty-compact');
+import fs from "fs";
+import stringify from "json-stringify-pretty-compact";
+import millify from "millify";
+import pRetry from "p-retry";
 
 const lastMonthDownloads = [];
 const totalDownloads = [];
@@ -11,6 +12,8 @@ const jsDelivrLastMonthDownloads = [];
 const jsDelivrTotalDownloads = [];
 const jsDelivrLastMonthPopular = {};
 const jsDelivrTotalPopular = {};
+
+const errors = [];
 
 /**
  * Represents the structure of the NPM download registry response.
@@ -58,80 +61,93 @@ const jsDelivrTotalPopular = {};
 /**
  * Generates the NPM download count URL for the last month.
  *
- * @param {string} package
+ * @param {string} pkg
  * @returns {string}
  */
-const npmMonth = (package) =>
-	`https://api.npmjs.org/downloads/point/last-month/${package}`;
+const npmMonth = (pkg) =>
+	`https://api.npmjs.org/downloads/point/last-month/${pkg}`;
 
 /**
  * Generates the NPM download count URL for the total downloads (NPM only stores past 18 months).
  *
- * @param {string} package
+ * @param {string} pkg
  * @returns {string}
  */
-const npmTotal = (package) =>
-	`https://api.npmjs.org/downloads/range/2020-01-01:3000-01-01/${package}`;
+const npmTotal = (pkg) =>
+	`https://api.npmjs.org/downloads/point/last-year/${pkg}`;
 
 /**
  * Generates the jsDelivr download count URL for the last month.
  *
- * @param {string} package
+ * @param {string} pkg
  * @returns {string}
  */
-const jsDelivrMonth = (package) =>
-	`https://data.jsdelivr.com/v1/stats/packages/npm/${package}?period=month`;
+const jsDelivrMonth = (pkg) =>
+	`https://data.jsdelivr.com/v1/stats/packages/npm/${pkg}?period=month`;
 
 /**
  * Generates the jsDelivr download URL for a specific period (year).
  *
- * @param {string} package
+ * @param {string} pkg
  * @param {Period} period
  * @returns {string}
  */
-const jsDelivrYear = (package, period) =>
-	`https://data.jsdelivr.com/v1/stats/packages/npm/${package}?period=${period}`;
+const jsDelivrYear = (pkg, period) =>
+	`https://data.jsdelivr.com/v1/stats/packages/npm/${pkg}?period=${period}`;
+
+/**
+ * Helper to fetch with p-retry and exponential backoff.
+ */
+const fetchWithRetry = async (url, pkg) => {
+	return await pRetry(
+		async () => {
+			const response = await fetch(url);
+			if (!response.ok) {
+				if (response.status === 429) {
+					throw new Error(`429 on ${url}`);
+				}
+				throw new pRetry.AbortError(
+					`Failed to fetch ${url}: ${response.status}`,
+				);
+			}
+			return response;
+		},
+		{
+			onFailedAttempt: (error) => {
+				if (error.message && error.message.startsWith("429")) {
+					console.log(
+						`  ${error.message} ${pkg} — backing off ${error.attemptNumber * 10}s`,
+					);
+				}
+			},
+			retries: 5,
+			minTimeout: 10000,
+		},
+	);
+};
 
 /**
  * Get the download statistics for a specific package.
  *
- * @param {string} package - id of the package.
+ * @param {string} pkg - id of the package.
  * @returns {Promise<void>}
  */
-const statsGet = async (package) => {
+const statsGet = async (pkg) => {
 	try {
-		const [
-			npmMonthResp,
-			npmTotalResp,
-			jsDelivrMonthResp,
-			jsDelivrYearResp,
-			jsDelivrLastYearResp,
-		] = await Promise.all([
-			fetch(npmMonth(package)),
-			fetch(npmTotal(package)),
-			fetch(jsDelivrMonth(package)),
-			fetch(jsDelivrYear(package, 'year')),
-			fetch(jsDelivrYear(package, 's-year')),
-		]);
+		// NPM sequential
+		const npmMonthResp = await fetchWithRetry(npmMonth(pkg), pkg);
+		await new Promise((resolve) => setTimeout(resolve, 100));
+		const npmTotalResp = await fetchWithRetry(npmTotal(pkg), pkg);
+		await new Promise((resolve) => setTimeout(resolve, 100));
 
-		for (const response of [
-			npmMonthResp,
-			npmTotalResp,
-			jsDelivrMonthResp,
-			jsDelivrYearResp,
-			jsDelivrLastYearResp,
-		]) {
-			if (!response.ok) {
-				console.error(`Failed to fetch ${package} from ${response.url}`);
-				if (response.status === 429) {
-					console.error('Rate limited. Retrying in 5 seconds.');
-					await new Promise((resolve) => setTimeout(resolve, 5000));
-					return statsGet(package, type);
-				}
-			}
-		}
+		// jsDelivr parallel
+		const [jsDelivrMonthResp, jsDelivrYearResp, jsDelivrLastYearResp] =
+			await Promise.all([
+				fetchWithRetry(jsDelivrMonth(pkg), pkg),
+				fetchWithRetry(jsDelivrYear(pkg, "year"), pkg),
+				fetchWithRetry(jsDelivrYear(pkg, "s-year"), pkg),
+			]);
 
-		/** @type {[NPMDownloadRegistry, NPMDownloadRegistryRange, JSDelivrStat, JSDelivrStat, JSDelivrStat]} */
 		const [
 			npmMonthData,
 			npmTotalData,
@@ -148,39 +164,109 @@ const statsGet = async (package) => {
 
 		// NPM
 		lastMonthDownloads.push(npmMonthData.downloads);
-		lastMonthPopular[package] = npmMonthData.downloads;
-
-		const downloadArray = npmTotalData.downloads.map((item) => item.downloads);
-		const downloads = downloadArray.reduce((a, b) => a + b, 0); // Sum of all downloads
-		totalDownloads.push(downloads);
-		totalPopular[package] = downloads;
+		lastMonthPopular[pkg] = npmMonthData.downloads;
+		totalDownloads.push(npmTotalData.downloads);
+		totalPopular[pkg] = npmTotalData.downloads;
 
 		// jsDelivr
-		jsDelivrLastMonthPopular[package] = jsDelivrMonthData.hits.total;
-		jsDelivrTotalPopular[package] =
+		jsDelivrLastMonthPopular[pkg] = jsDelivrMonthData.hits.total;
+		jsDelivrTotalPopular[pkg] =
 			jsDelivrYearData.hits.total + jsDelivrLastYearData.hits.total;
 		jsDelivrLastMonthDownloads.push(jsDelivrMonthData.hits.total);
 		jsDelivrTotalDownloads.push(
-			jsDelivrYearData.hits.total + jsDelivrLastYearData.hits.total
+			jsDelivrYearData.hits.total + jsDelivrLastYearData.hits.total,
 		);
 
-		console.log(`Fetched ${package}`);
+		console.log(`Fetched ${pkg}`);
 	} catch (error) {
-		console.error(`Failed to fetch ${package}`);
-		console.error(error);
-		console.error('Continuing in 5 seconds.');
-		await new Promise((resolve) => setTimeout(resolve, 5000));
+		console.error(`Failed to fetch ${pkg}: ${error.message}`);
+		errors.push(`${pkg}: ${error.message}`);
 	}
 };
 
 // Get fontlist
 const legacyFontlist = JSON.parse(
-	fs.readFileSync('./data/legacy-fontlist.json', 'utf8')
+	fs.readFileSync("./data/legacy-fontlist.json", "utf8"),
 );
 
 const production = async () => {
+	const legacyIds = Object.keys(legacyFontlist).map((id) => `fontsource-${id}`);
+	console.log(
+		`npm: Fetching ${legacyIds.length} legacy packages via bulk API...`,
+	);
+	const totalBatches = Math.ceil(legacyIds.length / 128);
+
+	for (let i = 0; i < legacyIds.length; i += 128) {
+		const batch = legacyIds.slice(i, i + 128);
+		const batchStr = batch.join(",");
+		const batchNum = i / 128 + 1;
+
+		try {
+			console.log(
+				`npm bulk last-year batch ${batchNum}/${totalBatches} (${batch.length} packages)`,
+			);
+			const yearResp = await fetchWithRetry(npmTotal(batchStr), "");
+			const yearData = await yearResp.json();
+
+			console.log(
+				`npm bulk last-month batch ${batchNum}/${totalBatches} (${batch.length} packages)`,
+			);
+			const monthResp = await fetchWithRetry(npmMonth(batchStr), "");
+			const monthData = await monthResp.json();
+
+			for (const pkg of batch) {
+				if (yearData[pkg]) {
+					totalDownloads.push(yearData[pkg].downloads);
+					totalPopular[pkg] = yearData[pkg].downloads;
+				}
+				if (monthData[pkg]) {
+					lastMonthDownloads.push(monthData[pkg].downloads);
+					lastMonthPopular[pkg] = monthData[pkg].downloads;
+				}
+			}
+
+			// jsDelivr parallel for batch
+			await Promise.all(
+				batch.map(async (pkg) => {
+					try {
+						const [jsMonthResp, jsYearResp, jsLastYearResp] = await Promise.all(
+							[
+								fetchWithRetry(jsDelivrMonth(pkg), pkg),
+								fetchWithRetry(jsDelivrYear(pkg, "year"), pkg),
+								fetchWithRetry(jsDelivrYear(pkg, "s-year"), pkg),
+							],
+						);
+
+						const [jsMonthData, jsYearData, jsLastYearData] = await Promise.all(
+							[jsMonthResp.json(), jsYearResp.json(), jsLastYearResp.json()],
+						);
+
+						jsDelivrLastMonthPopular[pkg] = jsMonthData.hits.total;
+						jsDelivrTotalPopular[pkg] =
+							jsYearData.hits.total + jsLastYearData.hits.total;
+						jsDelivrLastMonthDownloads.push(jsMonthData.hits.total);
+						jsDelivrTotalDownloads.push(
+							jsYearData.hits.total + jsLastYearData.hits.total,
+						);
+					} catch (error) {
+						console.error(
+							`Failed to fetch jsDelivr for ${pkg}: ${error.message}`,
+						);
+						errors.push(`${pkg} (jsDelivr): ${error.message}`);
+					}
+				}),
+			);
+		} catch (error) {
+			console.error(
+				`Failed to fetch NPM bulk batch ${batchNum}: ${error.message}`,
+			);
+			errors.push(`NPM Bulk Batch ${batchNum}: ${error.message}`);
+		}
+	}
+	console.log("Legacy npm done");
+
 	const fontlistResp = await fetch(
-		'https://api.fontsource.org/fontlist?variable'
+		"https://api.fontsource.org/fontlist?variable",
 	);
 	/** @type {Record<string, boolean>} */
 	const fontlist = await fontlistResp.json();
@@ -191,10 +277,6 @@ const production = async () => {
 			await statsGet(`@fontsource-variable/${key}`);
 		}
 	}
-
-	for (const id of Object.keys(legacyFontlist)) {
-		await statsGet(`fontsource-${id}`);
-	}
 };
 
 production().then(() => {
@@ -203,15 +285,15 @@ production().then(() => {
 	const downloadsTotal = totalDownloads.reduce((a, b) => a + b, 0);
 	const downloadsJsDelivrMonth = jsDelivrLastMonthDownloads.reduce(
 		(a, b) => a + b,
-		0
+		0,
 	);
 	const downloadsJsDelivrTotal = jsDelivrTotalDownloads.reduce(
 		(a, b) => a + b,
-		0
+		0,
 	);
 
 	const existingDownloadsTotal = Object.values(
-		JSON.parse(fs.readFileSync('./data/totalPopular.json', 'utf8'))
+		JSON.parse(fs.readFileSync("./data/totalPopular.json", "utf8")),
 	).reduce((a, b) => a + b, 0);
 
 	if (downloadsTotal > existingDownloadsTotal) {
@@ -235,68 +317,76 @@ production().then(() => {
 
 		const badgeMonth = {
 			schemaVersion: 1,
-			label: 'downloads',
+			label: "downloads",
 			message: `${downloadsMonthBadge}/month`,
-			color: 'brightgreen',
+			color: "brightgreen",
 		};
-		fs.writeFileSync('./data/badgeMonth.json', stringify(badgeMonth));
+		fs.writeFileSync("./data/badgeMonth.json", stringify(badgeMonth));
 
 		const badgeTotal = {
 			schemaVersion: 1,
-			label: 'downloads',
+			label: "downloads",
 			message: downloadsTotalBadge,
-			color: 'brightgreen',
+			color: "brightgreen",
 		};
-		fs.writeFileSync('./data/badgeTotal.json', stringify(badgeTotal));
+		fs.writeFileSync("./data/badgeTotal.json", stringify(badgeTotal));
 
 		const badgeJsDelivrMonth = {
 			schemaVersion: 1,
-			label: 'jsDelivr',
+			label: "jsDelivr",
 			message: `${downloadsJsDelivrMonthBadge}/month`,
-			color: 'ff5627',
+			color: "ff5627",
 		};
 		fs.writeFileSync(
-			'./data/badgejsDelivrMonth.json',
-			stringify(badgeJsDelivrMonth)
+			"./data/badgejsDelivrMonth.json",
+			stringify(badgeJsDelivrMonth),
 		);
 
 		const badgeJsDelivrTotal = {
 			schemaVersion: 1,
-			label: 'jsDelivr',
+			label: "jsDelivr",
 			message: downloadsJsDelivrTotalBadge,
-			color: 'ff5627',
+			color: "ff5627",
 		};
 		fs.writeFileSync(
-			'./data/badgejsDelivrTotal.json',
-			stringify(badgeJsDelivrTotal)
+			"./data/badgejsDelivrTotal.json",
+			stringify(badgeJsDelivrTotal),
 		);
 
 		// Sort in descending order of values
 		const sortedLastMonthPopular = Object.fromEntries(
-			Object.entries(lastMonthPopular).sort((a, b) => b[1] - a[1])
+			Object.entries(lastMonthPopular).sort((a, b) => b[1] - a[1]),
 		);
 		const sortedTotalPopular = Object.fromEntries(
-			Object.entries(totalPopular).sort((a, b) => b[1] - a[1])
+			Object.entries(totalPopular).sort((a, b) => b[1] - a[1]),
 		);
 		const sortedJsDelivrLastMonthPopular = Object.fromEntries(
-			Object.entries(jsDelivrLastMonthPopular).sort((a, b) => b[1] - a[1])
+			Object.entries(jsDelivrLastMonthPopular).sort((a, b) => b[1] - a[1]),
 		);
 		const sortedJsDelivrTotalPopular = Object.fromEntries(
-			Object.entries(jsDelivrTotalPopular).sort((a, b) => b[1] - a[1])
+			Object.entries(jsDelivrTotalPopular).sort((a, b) => b[1] - a[1]),
 		);
 
 		fs.writeFileSync(
-			'./data/lastMonthPopular.json',
-			stringify(sortedLastMonthPopular)
+			"./data/lastMonthPopular.json",
+			stringify(sortedLastMonthPopular),
 		);
-		fs.writeFileSync('./data/totalPopular.json', stringify(sortedTotalPopular));
+		fs.writeFileSync("./data/totalPopular.json", stringify(sortedTotalPopular));
 		fs.writeFileSync(
-			'./data/jsDelivrMonthPopular.json',
-			stringify(sortedJsDelivrLastMonthPopular)
+			"./data/jsDelivrMonthPopular.json",
+			stringify(sortedJsDelivrLastMonthPopular),
 		);
 		fs.writeFileSync(
-			'./data/jsDelivrTotalPopular.json',
-			stringify(sortedJsDelivrTotalPopular)
+			"./data/jsDelivrTotalPopular.json",
+			stringify(sortedJsDelivrTotalPopular),
 		);
+	}
+
+	if (errors.length > 0) {
+		console.error(`\nCompleted with ${errors.length} errors:`);
+		for (const error of errors) {
+			console.error(`- ${error}`);
+		}
+		process.exit(1);
 	}
 });

@@ -1,14 +1,15 @@
 {
 	"name": "download-stat-aggregator",
+	"type": "module",
 	"version": "1.1.0",
 	"description": "Fontsource NPM download stat aggregator",
 	"repository": "https://github.com/fontsource/download-stat-aggregator.git",
-	"packageManager": "pnpm@8.8.0",
-	"author": "Lotus <declininglotus@gmail.com>",
+	"author": "Ayuhito <hello@ayuhito.com>",
 	"license": "MIT",
 	"dependencies": {
 		"json-stringify-pretty-compact": "^3.0.0",
-		"millify": "^3.3.0"
+		"millify": "^3.5.2",
+		"p-retry": "^7.1.1"
 	},
 	"scripts": {
 		"parse": "node index.js"
