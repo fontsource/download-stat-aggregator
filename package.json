@@ -9,9 +9,13 @@
 	"dependencies": {
 		"json-stringify-pretty-compact": "^3.0.0",
 		"millify": "^3.5.2",
+		"p-limit": "^7.3.0",
 		"p-retry": "^7.1.1"
 	},
 	"scripts": {
 		"parse": "node index.js"
+	},
+	"devDependencies": {
+		"typescript": "^5.9.3"
 	}
 }

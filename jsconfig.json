@@ -1,7 +1,14 @@
 {
   "compilerOptions": {
-    "module": "CommonJS",
-    "target": "ES6"
+    "module": "ESNext",
+    "moduleResolution": "Bundler",
+    "target": "ESNext",
+    "checkJs": true,
+    "allowJs": true,
+    "noEmit": true,
+    "strict": true,
+    "skipLibCheck": true,
+    "lib": ["ESNext", "DOM"]
   },
-  "exclude": ["node_modules"]
+  "exclude": ["node_modules", "**/node_modules/*"]
 }

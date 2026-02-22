@@ -1,19 +1,31 @@
 import fs from "fs";
 import stringify from "json-stringify-pretty-compact";
 import millify from "millify";
-import pRetry from "p-retry";
+import pRetry, { AbortError } from "p-retry";
+import pLimit from "p-limit";
 
+/** @type {number[]} */
 const lastMonthDownloads = [];
+/** @type {number[]} */
 const totalDownloads = [];
+/** @type {Record<string, number>} */
 const lastMonthPopular = {};
+/** @type {Record<string, number>} */
 const totalPopular = {};
 
+/** @type {number[]} */
 const jsDelivrLastMonthDownloads = [];
+/** @type {number[]} */
 const jsDelivrTotalDownloads = [];
+/** @type {Record<string, number>} */
 const jsDelivrLastMonthPopular = {};
+/** @type {Record<string, number>} */
 const jsDelivrTotalPopular = {};
 
+/** @type {string[]} */
 const errors = [];
+
+const limit = pLimit(2);
 
 /**
  * Represents the structure of the NPM download registry response.
@@ -97,6 +109,10 @@ const jsDelivrYear = (pkg, period) =>
 
 /**
  * Helper to fetch with p-retry and exponential backoff.
+ *
+ * @param {string} url
+ * @param {string} pkg
+ * @returns {Promise<Response>}
  */
 const fetchWithRetry = async (url, pkg) => {
 	return await pRetry(
@@ -106,17 +122,15 @@ const fetchWithRetry = async (url, pkg) => {
 				if (response.status === 429) {
 					throw new Error(`429 on ${url}`);
 				}
-				throw new pRetry.AbortError(
-					`Failed to fetch ${url}: ${response.status}`,
-				);
+				throw new AbortError(`Failed to fetch ${url}: ${response.status}`);
 			}
 			return response;
 		},
 		{
-			onFailedAttempt: (error) => {
-				if (error.message && error.message.startsWith("429")) {
+			onFailedAttempt: ({ error, attemptNumber }) => {
+				if (error.message?.startsWith("429")) {
 					console.log(
-						`  ${error.message} ${pkg} — backing off ${error.attemptNumber * 10}s`,
+						`  ${error.message} ${pkg} — backing off ${attemptNumber * 10}s`,
 					);
 				}
 			},
@@ -148,19 +162,16 @@ const statsGet = async (pkg) => {
 				fetchWithRetry(jsDelivrYear(pkg, "s-year"), pkg),
 			]);
 
-		const [
-			npmMonthData,
-			npmTotalData,
-			jsDelivrMonthData,
-			jsDelivrYearData,
-			jsDelivrLastYearData,
-		] = await Promise.all([
-			npmMonthResp.json(),
-			npmTotalResp.json(),
-			jsDelivrMonthResp.json(),
-			jsDelivrYearResp.json(),
-			jsDelivrLastYearResp.json(),
-		]);
+		/** @type {NPMDownloadRegistry} */
+		const npmMonthData = await npmMonthResp.json();
+		/** @type {NPMDownloadRegistry} */
+		const npmTotalData = await npmTotalResp.json();
+		/** @type {JSDelivrStat} */
+		const jsDelivrMonthData = await jsDelivrMonthResp.json();
+		/** @type {JSDelivrStat} */
+		const jsDelivrYearData = await jsDelivrYearResp.json();
+		/** @type {JSDelivrStat} */
+		const jsDelivrLastYearData = await jsDelivrLastYearResp.json();
 
 		// NPM
 		lastMonthDownloads.push(npmMonthData.downloads);
@@ -179,8 +190,9 @@ const statsGet = async (pkg) => {
 
 		console.log(`Fetched ${pkg}`);
 	} catch (error) {
-		console.error(`Failed to fetch ${pkg}: ${error.message}`);
-		errors.push(`${pkg}: ${error.message}`);
+		const errorMessage = error instanceof Error ? error.message : String(error);
+		console.error(`Failed to fetch ${pkg}: ${errorMessage}`);
+		errors.push(`${pkg}: ${errorMessage}`);
 	}
 };
 
@@ -206,12 +218,14 @@ const production = async () => {
 				`npm bulk last-year batch ${batchNum}/${totalBatches} (${batch.length} packages)`,
 			);
 			const yearResp = await fetchWithRetry(npmTotal(batchStr), "");
+			/** @type {Record<string, NPMDownloadRegistry>} */
 			const yearData = await yearResp.json();
 
 			console.log(
 				`npm bulk last-month batch ${batchNum}/${totalBatches} (${batch.length} packages)`,
 			);
 			const monthResp = await fetchWithRetry(npmMonth(batchStr), "");
+			/** @type {Record<string, NPMDownloadRegistry>} */
 			const monthData = await monthResp.json();
 
 			for (const pkg of batch) {
@@ -237,9 +251,12 @@ const production = async () => {
 							],
 						);
 
-						const [jsMonthData, jsYearData, jsLastYearData] = await Promise.all(
-							[jsMonthResp.json(), jsYearResp.json(), jsLastYearResp.json()],
-						);
+						/** @type {JSDelivrStat} */
+						const jsMonthData = await jsMonthResp.json();
+						/** @type {JSDelivrStat} */
+						const jsYearData = await jsYearResp.json();
+						/** @type {JSDelivrStat} */
+						const jsLastYearData = await jsLastYearResp.json();
 
 						jsDelivrLastMonthPopular[pkg] = jsMonthData.hits.total;
 						jsDelivrTotalPopular[pkg] =
@@ -249,18 +266,22 @@ const production = async () => {
 							jsYearData.hits.total + jsLastYearData.hits.total,
 						);
 					} catch (error) {
+						const errorMessage =
+							error instanceof Error ? error.message : String(error);
 						console.error(
-							`Failed to fetch jsDelivr for ${pkg}: ${error.message}`,
+							`Failed to fetch jsDelivr for ${pkg}: ${errorMessage}`,
 						);
-						errors.push(`${pkg} (jsDelivr): ${error.message}`);
+						errors.push(`${pkg} (jsDelivr): ${errorMessage}`);
 					}
 				}),
 			);
 		} catch (error) {
+			const errorMessage =
+				error instanceof Error ? error.message : String(error);
 			console.error(
-				`Failed to fetch NPM bulk batch ${batchNum}: ${error.message}`,
+				`Failed to fetch NPM bulk batch ${batchNum}: ${errorMessage}`,
 			);
-			errors.push(`NPM Bulk Batch ${batchNum}: ${error.message}`);
+			errors.push(`NPM Bulk Batch ${batchNum}: ${errorMessage}`);
 		}
 	}
 	console.log("Legacy npm done");
@@ -271,12 +292,17 @@ const production = async () => {
 	/** @type {Record<string, boolean>} */
 	const fontlist = await fontlistResp.json();
 
+	const scopedPackages = [];
 	for (const [key, isVariable] of Object.entries(fontlist)) {
-		await statsGet(`@fontsource/${key}`);
+		scopedPackages.push(`@fontsource/${key}`);
 		if (isVariable) {
-			await statsGet(`@fontsource-variable/${key}`);
+			scopedPackages.push(`@fontsource-variable/${key}`);
 		}
 	}
+
+	await Promise.all(
+		scopedPackages.map((pkg) => limit(() => statsGet(pkg))),
+	);
 };
 
 production().then(() => {
@@ -293,7 +319,8 @@ production().then(() => {
 	);
 
 	const existingDownloadsTotal = Object.values(
-		JSON.parse(fs.readFileSync("./data/totalPopular.json", "utf8")),
+		/** @type {Record<string, number>} */
+		(JSON.parse(fs.readFileSync("./data/totalPopular.json", "utf8"))),
 	).reduce((a, b) => a + b, 0);
 
 	if (downloadsTotal > existingDownloadsTotal) {
