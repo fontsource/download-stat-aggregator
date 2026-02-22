@@ -1,8 +1,7 @@
-import fs from "fs";
+import fs from "node:fs";
 import stringify from "json-stringify-pretty-compact";
 import millify from "millify";
 import pRetry, { AbortError } from "p-retry";
-import pLimit from "p-limit";
 
 /** @type {number[]} */
 const lastMonthDownloads = [];
@@ -24,8 +23,6 @@ const jsDelivrTotalPopular = {};
 
 /** @type {string[]} */
 const errors = [];
-
-const limit = pLimit(2);
 
 /**
  * Represents the structure of the NPM download registry response.
@@ -292,17 +289,12 @@ const production = async () => {
 	/** @type {Record<string, boolean>} */
 	const fontlist = await fontlistResp.json();
 
-	const scopedPackages = [];
 	for (const [key, isVariable] of Object.entries(fontlist)) {
-		scopedPackages.push(`@fontsource/${key}`);
+		await statsGet(`@fontsource/${key}`);
 		if (isVariable) {
-			scopedPackages.push(`@fontsource-variable/${key}`);
+			await statsGet(`@fontsource-variable/${key}`);
 		}
 	}
-
-	await Promise.all(
-		scopedPackages.map((pkg) => limit(() => statsGet(pkg))),
-	);
 };
 
 production().then(() => {
