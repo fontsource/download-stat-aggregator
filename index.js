@@ -127,12 +127,12 @@ const fetchWithRetry = async (url, pkg) => {
 			onFailedAttempt: ({ error, attemptNumber }) => {
 				if (error.message?.startsWith("429")) {
 					console.log(
-						`  ${error.message} ${pkg} — backing off ${attemptNumber * 10}s`,
+						`  ${error.message} ${pkg} — attempt ${attemptNumber} backing off 5s`,
 					);
 				}
 			},
 			retries: 5,
-			minTimeout: 10000,
+			minTimeout: 5000,
 		},
 	);
 };
