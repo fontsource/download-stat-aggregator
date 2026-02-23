@@ -1,6 +1,6 @@
 import fs from "node:fs";
 import stringify from "json-stringify-pretty-compact";
-import millify from "millify";
+import { millify } from "millify";
 import pRetry, { AbortError } from "p-retry";
 
 /** @type {number[]} */
@@ -147,9 +147,9 @@ const statsGet = async (pkg) => {
 	try {
 		// NPM sequential
 		const npmMonthResp = await fetchWithRetry(npmMonth(pkg), pkg);
-		await new Promise((resolve) => setTimeout(resolve, 100));
+		await new Promise((resolve) => setTimeout(resolve, 500));
 		const npmTotalResp = await fetchWithRetry(npmTotal(pkg), pkg);
-		await new Promise((resolve) => setTimeout(resolve, 100));
+		await new Promise((resolve) => setTimeout(resolve, 500));
 
 		// jsDelivr parallel
 		const [jsDelivrMonthResp, jsDelivrYearResp, jsDelivrLastYearResp] =
